@@ -23,6 +23,12 @@ export class SseClient {
   }
 
   connect(): void {
+    // Close existing connection before creating a new one (prevents listener accumulation on reconnect)
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+
     const url =
       this.lastEventId > 0 ? `${this.url}?since=${this.lastEventId}` : this.url;
 

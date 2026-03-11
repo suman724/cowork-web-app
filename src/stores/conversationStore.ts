@@ -16,16 +16,18 @@ interface ConversationState {
   messages: Message[];
   currentTask: TaskResponse | null;
   isStreaming: boolean;
+  processedEventIds: Set<number>;
 
   sendMessage: (sessionId: string, prompt: string) => Promise<void>;
   handleEvent: (event: SessionEvent) => void;
   clear: () => void;
 }
 
-export const useConversationStore = create<ConversationState>((set) => ({
+export const useConversationStore = create<ConversationState>((set, get) => ({
   messages: [],
   currentTask: null,
   isStreaming: false,
+  processedEventIds: new Set<number>(),
 
   sendMessage: async (sessionId: string, prompt: string) => {
     const userMsg: Message = {
@@ -56,6 +58,11 @@ export const useConversationStore = create<ConversationState>((set) => ({
   },
 
   handleEvent: (event: SessionEvent) => {
+    // Deduplicate events by ID
+    const { processedEventIds } = get();
+    if (processedEventIds.has(event.id)) return;
+    processedEventIds.add(event.id);
+
     const { type } = event.data as { type: string };
 
     switch (type) {
@@ -144,5 +151,11 @@ export const useConversationStore = create<ConversationState>((set) => ({
     }
   },
 
-  clear: () => set({ messages: [], currentTask: null, isStreaming: false }),
+  clear: () =>
+    set({
+      messages: [],
+      currentTask: null,
+      isStreaming: false,
+      processedEventIds: new Set<number>(),
+    }),
 }));

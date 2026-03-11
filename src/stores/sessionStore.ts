@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { api, type SessionResponse } from "../api/client";
 
+// Module-level guard to prevent concurrent polls
+let _polling = false;
+
 interface SessionState {
   sessions: SessionResponse[];
   activeSession: SessionResponse | null;
@@ -41,29 +44,35 @@ export const useSessionStore = create<SessionState>((set) => ({
   },
 
   pollUntilReady: async (sessionId: string) => {
-    const maxAttempts = 60;
-    let lastStatus = "";
-    for (let i = 0; i < maxAttempts; i++) {
-      const session = await api.getSession(sessionId);
-      if (session.status !== lastStatus) {
-        lastStatus = session.status;
-        set({ activeSession: session });
+    if (_polling) return;
+    _polling = true;
+    try {
+      const maxAttempts = 60;
+      let lastStatus = "";
+      for (let i = 0; i < maxAttempts; i++) {
+        const session = await api.getSession(sessionId);
+        if (session.status !== lastStatus) {
+          lastStatus = session.status;
+          set({ activeSession: session });
+        }
+        if (
+          session.status === "SANDBOX_READY" ||
+          session.status === "SESSION_RUNNING"
+        ) {
+          return;
+        }
+        if (
+          session.status === "SESSION_FAILED" ||
+          session.status === "SESSION_CANCELLED"
+        ) {
+          throw new Error(`Session ${session.status}`);
+        }
+        await new Promise((r) => setTimeout(r, 1000));
       }
-      if (
-        session.status === "SANDBOX_READY" ||
-        session.status === "SESSION_RUNNING"
-      ) {
-        return;
-      }
-      if (
-        session.status === "SESSION_FAILED" ||
-        session.status === "SESSION_CANCELLED"
-      ) {
-        throw new Error(`Session ${session.status}`);
-      }
-      await new Promise((r) => setTimeout(r, 1000));
+      throw new Error("Sandbox provisioning timed out");
+    } finally {
+      _polling = false;
     }
-    throw new Error("Sandbox provisioning timed out");
   },
 
   cancelSession: async (sessionId: string) => {
