@@ -21,6 +21,13 @@ export interface TaskResponse {
   status: string;
 }
 
+export interface UploadResult {
+  path: string;
+  size: number;
+  persisted: boolean;
+  sandboxSynced: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -105,14 +112,21 @@ class SessionApiClient {
     return task;
   }
 
-  async uploadFile(sessionId: string, file: File): Promise<void> {
+  async uploadFile(
+    sessionId: string,
+    file: File,
+    path?: string,
+  ): Promise<UploadResult> {
     const formData = new FormData();
     formData.append("file", file);
-    const resp = await fetch(`${this.baseUrl}/sessions/${sessionId}/upload`, {
+    const url = new URL(`${this.baseUrl}/sessions/${sessionId}/upload`);
+    if (path) url.searchParams.set("path", path);
+    const resp = await fetch(url.toString(), {
       method: "POST",
       body: formData,
     });
     if (!resp.ok) throw new ApiError(resp.status, await resp.text());
+    return resp.json();
   }
 
   async listFiles(sessionId: string): Promise<{

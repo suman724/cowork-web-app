@@ -28,6 +28,13 @@ cd cowork-web-app && make dev
 
 Open http://localhost:5173. Create a session — it will auto-provision a sandbox.
 
+## Features
+
+- **Session management**: Create, monitor, and cancel cloud sandbox sessions
+- **Conversation**: Send prompts, stream LLM responses and tool outputs via SSE
+- **File upload**: Upload files via button or drag-and-drop. Files persist to S3 via Workspace Service and sync to sandbox when ready. Shows sync status ("Synced to sandbox" / "Saved. Will sync when sandbox is ready.")
+- **File browser**: List and download workspace files from the sidebar
+
 ## Available Commands
 
 | Command | Description |
