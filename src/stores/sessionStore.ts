@@ -42,9 +42,13 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   pollUntilReady: async (sessionId: string) => {
     const maxAttempts = 60;
+    let lastStatus = "";
     for (let i = 0; i < maxAttempts; i++) {
       const session = await api.getSession(sessionId);
-      set({ activeSession: session });
+      if (session.status !== lastStatus) {
+        lastStatus = session.status;
+        set({ activeSession: session });
+      }
       if (
         session.status === "SANDBOX_READY" ||
         session.status === "SESSION_RUNNING"

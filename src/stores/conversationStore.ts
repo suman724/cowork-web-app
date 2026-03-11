@@ -124,7 +124,11 @@ export const useConversationStore = create<ConversationState>((set) => ({
         set((state) => {
           const msgs = state.messages.map((m) =>
             m.toolCallId === data.toolCallId
-              ? { ...m, content: data.output || "Done", status: "complete" as const }
+              ? {
+                  ...m,
+                  content: data.output || "Done",
+                  status: "complete" as const,
+                }
               : m,
           );
           return { messages: msgs };

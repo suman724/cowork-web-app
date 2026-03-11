@@ -1,28 +1,21 @@
-import { useState } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 
 export function SessionListView() {
-  const {
-    sessions,
-    activeSession,
-    loading,
-    error,
-    createSession,
-    pollUntilReady,
-    clearError,
-  } = useSessionStore();
-  const [creating, setCreating] = useState(false);
+  const sessions = useSessionStore((s) => s.sessions);
+  const activeSession = useSessionStore((s) => s.activeSession);
+  const loading = useSessionStore((s) => s.loading);
+  const error = useSessionStore((s) => s.error);
+  const createSession = useSessionStore((s) => s.createSession);
+  const pollUntilReady = useSessionStore((s) => s.pollUntilReady);
+  const clearError = useSessionStore((s) => s.clearError);
 
   const handleCreate = async () => {
-    setCreating(true);
     clearError();
     try {
       const sessionId = await createSession("default-tenant", "default-user");
       await pollUntilReady(sessionId);
     } catch (err) {
       console.error("Failed to create session:", err);
-    } finally {
-      setCreating(false);
     }
   };
 
@@ -47,10 +40,10 @@ export function SessionListView() {
         ) : (
           <button
             onClick={handleCreate}
-            disabled={creating || loading}
+            disabled={loading}
             className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg font-medium transition-colors"
           >
-            {creating ? "Creating..." : "New Session"}
+            {loading ? "Creating..." : "New Session"}
           </button>
         )}
 

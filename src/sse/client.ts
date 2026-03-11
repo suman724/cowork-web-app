@@ -6,6 +6,8 @@ export interface SessionEvent {
 
 type EventHandler = (event: SessionEvent) => void;
 
+import { SESSION_SERVICE_URL } from "../config";
+
 export class SseClient {
   private url: string;
   private eventSource: EventSource | null = null;
@@ -14,31 +16,25 @@ export class SseClient {
   private reconnectDelay: number = 1000;
   private maxReconnectDelay: number = 30000;
   private shouldReconnect: boolean = true;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(sessionId: string) {
-    const baseUrl =
-      import.meta.env.VITE_SESSION_SERVICE_URL || "http://localhost:8000";
-    this.url = `${baseUrl}/sessions/${sessionId}/events`;
+    this.url = `${SESSION_SERVICE_URL}/sessions/${sessionId}/events`;
   }
 
   connect(): void {
     const url =
-      this.lastEventId > 0
-        ? `${this.url}?since=${this.lastEventId}`
-        : this.url;
+      this.lastEventId > 0 ? `${this.url}?since=${this.lastEventId}` : this.url;
 
     this.eventSource = new EventSource(url);
 
-    this.eventSource.addEventListener(
-      "session_event",
-      (e: MessageEvent) => {
-        const data = JSON.parse(e.data) as SessionEvent;
-        if (data.id > this.lastEventId) {
-          this.lastEventId = data.id;
-        }
-        this.handlers.forEach((h) => h(data));
-      },
-    );
+    this.eventSource.addEventListener("session_event", (e: MessageEvent) => {
+      const data = JSON.parse(e.data) as SessionEvent;
+      if (data.id > this.lastEventId) {
+        this.lastEventId = data.id;
+      }
+      this.handlers.forEach((h) => h(data));
+    });
 
     this.eventSource.addEventListener("gap", (e: MessageEvent) => {
       console.warn("SSE gap detected:", JSON.parse(e.data));
@@ -51,7 +47,10 @@ export class SseClient {
     this.eventSource.onerror = () => {
       this.eventSource?.close();
       if (this.shouldReconnect) {
-        setTimeout(() => this.connect(), this.reconnectDelay);
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.connect();
+        }, this.reconnectDelay);
         this.reconnectDelay = Math.min(
           this.reconnectDelay * 2,
           this.maxReconnectDelay,
@@ -69,6 +68,10 @@ export class SseClient {
 
   disconnect(): void {
     this.shouldReconnect = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.eventSource?.close();
     this.eventSource = null;
   }

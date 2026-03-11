@@ -1,5 +1,6 @@
-const BASE_URL =
-  import.meta.env.VITE_SESSION_SERVICE_URL || "http://localhost:8000";
+import { SESSION_SERVICE_URL } from "../config";
+
+const BASE_URL = SESSION_SERVICE_URL;
 
 export interface CreateSessionRequest {
   executionEnvironment: "cloud_sandbox";
@@ -62,10 +63,9 @@ class SessionApiClient {
   }
 
   async cancelSession(sessionId: string): Promise<void> {
-    const resp = await fetch(
-      `${this.baseUrl}/sessions/${sessionId}/cancel`,
-      { method: "POST" },
-    );
+    const resp = await fetch(`${this.baseUrl}/sessions/${sessionId}/cancel`, {
+      method: "POST",
+    });
     if (!resp.ok) throw new ApiError(resp.status, await resp.text());
   }
 
@@ -90,19 +90,13 @@ class SessionApiClient {
     return data.result;
   }
 
-  async createTask(
-    sessionId: string,
-    prompt: string,
-  ): Promise<TaskResponse> {
+  async createTask(sessionId: string, prompt: string): Promise<TaskResponse> {
     const taskId = crypto.randomUUID();
-    const resp = await fetch(
-      `${this.baseUrl}/sessions/${sessionId}/tasks`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId, prompt }),
-      },
-    );
+    const resp = await fetch(`${this.baseUrl}/sessions/${sessionId}/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId, prompt }),
+    });
     if (!resp.ok) throw new ApiError(resp.status, await resp.text());
     const task: TaskResponse = await resp.json();
 
@@ -114,21 +108,17 @@ class SessionApiClient {
   async uploadFile(sessionId: string, file: File): Promise<void> {
     const formData = new FormData();
     formData.append("file", file);
-    const resp = await fetch(
-      `${this.baseUrl}/sessions/${sessionId}/upload`,
-      { method: "POST", body: formData },
-    );
+    const resp = await fetch(`${this.baseUrl}/sessions/${sessionId}/upload`, {
+      method: "POST",
+      body: formData,
+    });
     if (!resp.ok) throw new ApiError(resp.status, await resp.text());
   }
 
-  async listFiles(
-    sessionId: string,
-  ): Promise<{
+  async listFiles(sessionId: string): Promise<{
     files: Array<{ path: string; size: number; contentType: string }>;
   }> {
-    const resp = await fetch(
-      `${this.baseUrl}/sessions/${sessionId}/files`,
-    );
+    const resp = await fetch(`${this.baseUrl}/sessions/${sessionId}/files`);
     if (!resp.ok) throw new ApiError(resp.status, await resp.text());
     return resp.json();
   }

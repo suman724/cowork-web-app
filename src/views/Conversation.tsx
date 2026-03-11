@@ -11,13 +11,18 @@ export function ConversationView() {
   const activeSession = useSessionStore((s) => s.activeSession);
   const cancelSession = useSessionStore((s) => s.cancelSession);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
-  const { messages, isStreaming, sendMessage, handleEvent, clear } =
-    useConversationStore();
-  const { files, refresh: refreshFiles } = useFileStore();
+  const messages = useConversationStore((s) => s.messages);
+  const isStreaming = useConversationStore((s) => s.isStreaming);
+  const sendMessage = useConversationStore((s) => s.sendMessage);
+  const handleEvent = useConversationStore((s) => s.handleEvent);
+  const clear = useConversationStore((s) => s.clear);
+  const files = useFileStore((s) => s.files);
+  const refreshFiles = useFileStore((s) => s.refresh);
   const [input, setInput] = useState("");
   const [showFiles, setShowFiles] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<SseClient | null>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sessionId = activeSession?.sessionId;
 
@@ -31,10 +36,16 @@ export function ConversationView() {
     return () => sse.disconnect();
   }, [sessionId, handleEvent]);
 
-  // Auto-scroll
+  // Auto-scroll (throttled to avoid layout thrash during streaming)
+  const messageCount = messages.length;
+  const lastMessageStatus = messages[messages.length - 1]?.status;
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (scrollTimerRef.current) return;
+    scrollTimerRef.current = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      scrollTimerRef.current = null;
+    }, 100);
+  }, [messageCount, lastMessageStatus]);
 
   // Refresh files when sidebar opens
   useEffect(() => {
