@@ -22,7 +22,7 @@ src/
 ### Key Patterns
 
 - All API calls go through Session Service proxy endpoints (`/sessions/{id}/rpc`, `/sessions/{id}/events`, etc.)
-- SSE for real-time events (LLM streaming, tool calls, status changes) with auto-reconnect and replay via `?since=` query param
+- SSE for real-time events (LLM streaming, tool calls, status changes) with auto-reconnect, replay via `?since=` query param, and `onDisconnect` callback for session termination detection
 - Zustand for client-side state — session lifecycle, conversation messages, workspace files
 - Tailwind CSS v4 for styling (imported via `@import "tailwindcss"` in index.css)
 
@@ -33,6 +33,8 @@ src/
 3. User sends message → `POST /sessions/{id}/tasks` + `POST /sessions/{id}/rpc` (StartTask)
 4. SSE events stream back: `llm_response_chunk`, `tool_call_started`, `tool_call_completed`, `task_completed`
 5. File operations via `/sessions/{id}/upload`, `/sessions/{id}/files`
+6. Session disconnect: SSE detects persistent failures → refresh session status → show disconnected banner
+7. Resume: User clicks "Resume" → `POST /sessions/{id}/resume` → poll until `SANDBOX_READY` → SSE reconnects to new sandbox with full history
 
 ## Environment Variables
 
