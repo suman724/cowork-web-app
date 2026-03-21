@@ -22,7 +22,9 @@ interface FileState {
   clearUploadError: () => void;
 }
 
-const TERMINAL_STATUSES = new Set(["SESSION_CANCELLED", "SANDBOX_TERMINATED"]);
+// SANDBOX_TERMINATED is NOT terminal — it's resumable via POST /sessions/{id}/resume.
+// Only SESSION_CANCELLED is truly terminal (user explicitly ended).
+const TERMINAL_STATUSES = new Set(["SESSION_CANCELLED"]);
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB client-side guard
 
