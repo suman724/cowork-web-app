@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  useSessionStore,
-  RESUMABLE_STATUSES,
-} from "../stores/sessionStore";
+import { useSessionStore, RESUMABLE_STATUSES } from "../stores/sessionStore";
 import {
   useConversationStore,
   type Message,
@@ -210,7 +207,10 @@ export function ConversationView() {
       {sessionError && (
         <div className="px-4 py-2 bg-red-900/30 border-b border-red-800/50 text-red-200 text-sm flex items-center justify-between">
           <span>{sessionError}</span>
-          <button onClick={clearError} className="text-red-400 hover:text-red-200 ml-2">
+          <button
+            onClick={clearError}
+            className="text-red-400 hover:text-red-200 ml-2"
+          >
             &times;
           </button>
         </div>
@@ -304,7 +304,9 @@ export function ConversationView() {
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || isStreaming || isDisconnected || reconnecting}
+                disabled={
+                  !input.trim() || isStreaming || isDisconnected || reconnecting
+                }
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg font-medium transition-colors"
               >
                 Send
