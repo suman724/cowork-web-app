@@ -69,6 +69,14 @@ class SessionApiClient {
     return resp.json();
   }
 
+  async resumeSession(sessionId: string): Promise<SessionResponse> {
+    const resp = await fetch(`${this.baseUrl}/sessions/${sessionId}/resume`, {
+      method: "POST",
+    });
+    if (!resp.ok) throw new ApiError(resp.status, await resp.text());
+    return resp.json();
+  }
+
   async cancelSession(sessionId: string): Promise<void> {
     const resp = await fetch(`${this.baseUrl}/sessions/${sessionId}/cancel`, {
       method: "POST",

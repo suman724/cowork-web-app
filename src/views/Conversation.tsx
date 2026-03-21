@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSessionStore } from "../stores/sessionStore";
+import {
+  useSessionStore,
+  RESUMABLE_STATUSES,
+} from "../stores/sessionStore";
 import {
   useConversationStore,
   type Message,
@@ -10,7 +13,12 @@ import { SseClient } from "../sse/client";
 export function ConversationView() {
   const activeSession = useSessionStore((s) => s.activeSession);
   const cancelSession = useSessionStore((s) => s.cancelSession);
+  const resumeSession = useSessionStore((s) => s.resumeSession);
+  const reconnecting = useSessionStore((s) => s.reconnecting);
+  const sessionError = useSessionStore((s) => s.error);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
+  const refreshSession = useSessionStore((s) => s.refreshSession);
+  const clearError = useSessionStore((s) => s.clearError);
   const messages = useConversationStore((s) => s.messages);
   const isStreaming = useConversationStore((s) => s.isStreaming);
   const sendMessage = useConversationStore((s) => s.sendMessage);
@@ -34,19 +42,28 @@ export function ConversationView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sessionId = activeSession?.sessionId;
-  const isTerminal = activeSession
-    ? TERMINAL_STATUSES.has(activeSession.status)
-    : false;
+  const status = activeSession?.status ?? "";
+  const isTerminal = TERMINAL_STATUSES.has(status);
+  const isResumable = RESUMABLE_STATUSES.has(status);
+  const isDisconnected = isResumable && !reconnecting;
 
   // Connect SSE
   useEffect(() => {
     if (!sessionId) return;
     const sse = new SseClient(sessionId);
     sse.onEvent(handleEvent);
+
+    // On persistent disconnect, refresh session status to detect termination
+    sse.onDisconnect(() => {
+      if (sessionId) {
+        refreshSession(sessionId);
+      }
+    });
+
     sse.connect();
     sseRef.current = sse;
     return () => sse.disconnect();
-  }, [sessionId, handleEvent]);
+  }, [sessionId, handleEvent, refreshSession]);
 
   // Auto-scroll (throttled to avoid layout thrash during streaming)
   const messageCount = messages.length;
@@ -94,6 +111,19 @@ export function ConversationView() {
     }
     clear();
     setActiveSession(null);
+  };
+
+  const handleResume = async () => {
+    if (!sessionId) return;
+    clearError();
+
+    // Reset SSE event tracking — new sandbox will have new event IDs
+    sseRef.current?.resetEventId();
+
+    await resumeSession(sessionId);
+
+    // After resume + pollUntilReady completes, SSE auto-reconnect
+    // will pick up the new sandbox endpoint
   };
 
   const handleUpload = useCallback(
@@ -147,16 +177,60 @@ export function ConversationView() {
             {sessionId?.slice(0, 8)}...
           </span>
           <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-400">
-            {activeSession?.status}
+            {status}
           </span>
         </div>
-        <button
-          onClick={() => setShowFiles(!showFiles)}
-          className="text-sm text-gray-400 hover:text-gray-200"
-        >
-          {showFiles ? "Hide Files" : "Files"}
-        </button>
+        <div className="flex items-center gap-2">
+          {isDisconnected && (
+            <button
+              onClick={handleResume}
+              className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white transition-colors"
+            >
+              Resume
+            </button>
+          )}
+          <button
+            onClick={() => setShowFiles(!showFiles)}
+            className="text-sm text-gray-400 hover:text-gray-200"
+          >
+            {showFiles ? "Hide Files" : "Files"}
+          </button>
+        </div>
       </div>
+
+      {/* Reconnecting banner */}
+      {reconnecting && (
+        <div className="px-4 py-2 bg-yellow-900/30 border-b border-yellow-800/50 text-yellow-200 text-sm flex items-center gap-2">
+          <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+          Reconnecting to session...
+        </div>
+      )}
+
+      {/* Session error banner */}
+      {sessionError && (
+        <div className="px-4 py-2 bg-red-900/30 border-b border-red-800/50 text-red-200 text-sm flex items-center justify-between">
+          <span>{sessionError}</span>
+          <button onClick={clearError} className="text-red-400 hover:text-red-200 ml-2">
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* Disconnected banner */}
+      {isDisconnected && !reconnecting && (
+        <div className="px-4 py-2 bg-gray-800/50 border-b border-gray-700 text-gray-300 text-sm flex items-center justify-between">
+          <span>
+            Session disconnected ({status.replace(/_/g, " ").toLowerCase()}).
+            Your conversation is saved.
+          </span>
+          <button
+            onClick={handleResume}
+            className="text-blue-400 hover:text-blue-300 ml-2"
+          >
+            Resume
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         {/* Messages + drop zone */}
@@ -219,14 +293,18 @@ export function ConversationView() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type a message..."
+                placeholder={
+                  isDisconnected
+                    ? "Session disconnected — click Resume to continue"
+                    : "Type a message..."
+                }
                 rows={1}
                 className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 placeholder-gray-600 resize-none focus:outline-none focus:border-blue-500"
-                disabled={isStreaming}
+                disabled={isStreaming || isDisconnected || reconnecting}
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || isStreaming}
+                disabled={!input.trim() || isStreaming || isDisconnected || reconnecting}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg font-medium transition-colors"
               >
                 Send

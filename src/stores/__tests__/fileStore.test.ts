@@ -271,9 +271,10 @@ describe("uploadErrorMessage", () => {
 });
 
 describe("TERMINAL_STATUSES", () => {
-  it("includes SESSION_CANCELLED and SANDBOX_TERMINATED", () => {
+  it("includes SESSION_CANCELLED only", () => {
     expect(TERMINAL_STATUSES.has("SESSION_CANCELLED")).toBe(true);
-    expect(TERMINAL_STATUSES.has("SANDBOX_TERMINATED")).toBe(true);
+    // SANDBOX_TERMINATED is resumable, not terminal
+    expect(TERMINAL_STATUSES.has("SANDBOX_TERMINATED")).toBe(false);
   });
 
   it("does not include active statuses", () => {
